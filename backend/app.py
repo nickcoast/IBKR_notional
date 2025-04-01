@@ -43,6 +43,7 @@ def setup_asyncio_event_loop():
     return loop
 
 # Background thread to update portfolio data
+# Modify the update_portfolio_data function in app.py
 def update_portfolio_data():
     setup_asyncio_event_loop()
     global portfolio_data, ib_client
@@ -51,20 +52,48 @@ def update_portfolio_data():
         if ib_client and ib_client.is_connected():
             try:
                 print("Attempting to get portfolio data...")
-                account_df, underlying_df = ib_client.get_portfolio_data()
                 
-                print(f"Retrieved data: account_df is None? {account_df is None}, underlying_df is None? {underlying_df is None}")
-                
-                if account_df is not None and underlying_df is not None:
-                    print("Setting portfolio data...")
+                # Use direct portfolio access
+                accounts = ib_client.ib.managedAccounts()
+                if accounts:
+                    account_id = accounts[0]
+                    print(f"Using account: {account_id}")
+                    
+                    # Create a basic account summary with some values
+                    account_summary = {
+                        'NetLiquidation': {'Value': '0'},
+                        'GrossPositionValue': {'Value': '0'},
+                        'BuyingPower': {'Value': '0'},
+                    }
+                    
+                    # Get portfolio directly
+                    portfolio_items = ib_client.ib.portfolio()
+                    print(f"Portfolio items received: {len(portfolio_items)}")
+                    
+                    # Process portfolio items
+                    underlying_data = []
+                    for item in portfolio_items:
+                        print(f"Processing item: {item.contract.symbol}")
+                        underlying_data.append({
+                            'Symbol': item.contract.symbol,
+                            'Stock Count': item.position if item.contract.secType == 'STK' else 0,
+                            'Stock Value': item.marketValue if item.contract.secType == 'STK' else 0,
+                            'Option Notional (Shares)': 0,  # Placeholder 
+                            'Option Notional Value': 0,
+                            'Option Actual Value': item.marketValue if item.contract.secType == 'OPT' else 0,
+                            'Underlying Price': item.marketPrice if item.marketPrice else item.averageCost,
+                            'Notional Position Value (NPV)': item.marketValue
+                        })
+                    
+                    # Update portfolio data
                     portfolio_data = {
-                        'account_summary': account_df.to_dict(),
-                        'underlying_positions': underlying_df.to_dict('records'),
+                        'account_summary': account_summary,
+                        'underlying_positions': underlying_data,
                         'last_update': datetime.now().isoformat()
                     }
+                    
                     print("Portfolio data set successfully")
-                else:
-                    print("One or both dataframes are None")
+                
             except Exception as e:
                 print(f"Error updating portfolio data: {e}")
                 print(f"Full traceback: {traceback.format_exc()}")
@@ -258,6 +287,79 @@ def test_connection():
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+    
+@app.route('/api/direct_data', methods=['GET'])
+def get_direct_data():
+    global ib_client
+    
+    if not ib_client or not ib_client.is_connected():
+        return jsonify({"status": "error", "message": "Not connected to Interactive Brokers"}), 400
+        
+    try:
+        # Get account IDs
+        accounts = ib_client.ib.managedAccounts()
+        
+        # Get portfolio directly
+        portfolio_items = ib_client.ib.portfolio()
+        
+        # Format portfolio items
+        portfolio_data = []
+        for item in portfolio_items:
+            portfolio_data.append({
+                'symbol': item.contract.symbol,
+                'position': item.position,
+                'marketPrice': item.marketPrice,
+                'marketValue': item.marketValue,
+                'averageCost': item.averageCost,
+                'unrealizedPNL': item.unrealizedPNL,
+                'realizedPNL': item.realizedPNL,
+            })
+        
+        return jsonify({
+            "status": "success",
+            "accounts": accounts,
+            "portfolio": portfolio_data,
+            "time": datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/detailed_status', methods=['GET'])
+def get_detailed_status():
+    global ib_client
+    
+    if not ib_client:
+        return jsonify({"status": "Not initialized"}), 200
+    
+    try:
+        conn_status = ib_client.is_connected()
+        accounts = ib_client.ib.managedAccounts() if conn_status else []
+        client_id = ib_client.client_id if hasattr(ib_client, 'client_id') else None
+        
+        # Try to get basic account data
+        account_values = []
+        if conn_status and accounts:
+            # Get account values directly
+            for val in ib_client.ib.accountValues():
+                if val.currency == 'USD':
+                    account_values.append({
+                        'tag': val.tag,
+                        'value': val.value
+                    })
+        
+        return jsonify({
+            "connected": conn_status,
+            "client_id": client_id,
+            "accounts": accounts,
+            "account_values_count": len(account_values),
+            "portfolio_count": len(ib_client.ib.portfolio()),
+            "sample_account_values": account_values[:5] if account_values else []
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 # Clean up resources when the app closes
 def cleanup():
