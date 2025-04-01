@@ -85,10 +85,20 @@ class IBClient:
         try:
             print("Starting async_get_portfolio_data...")
             
-            # Get account summary
+            # Get account summary with timeout
             print("Requesting account summary...")
-            account_summary = await self.ib.accountSummaryAsync()
-            print(f"Account summary received, length: {len(account_summary) if account_summary else 0}")
+            try:
+                # Add timeout to accountSummaryAsync
+                account_summary_task = asyncio.create_task(self.ib.accountSummaryAsync())
+                account_summary = await asyncio.wait_for(account_summary_task, timeout=5.0)
+                print(f"Account summary received, length: {len(account_summary) if account_summary else 0}")
+            except asyncio.TimeoutError:
+                print("Account summary request timed out after 5 seconds")
+                return None, None
+            except Exception as e:
+                print(f"Error getting account summary: {e}")
+                print(traceback.format_exc())
+                return None, None
             
             if not account_summary:
                 print("Account summary is empty")

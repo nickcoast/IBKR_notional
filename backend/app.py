@@ -237,6 +237,24 @@ def get_options():
     else:
         # Still waiting for data
         return jsonify({"status": "loading", "message": "Fetching options data..."}), 202
+    
+@app.route('/api/test_connection', methods=['GET'])
+def test_connection():
+    global ib_client
+    
+    if not ib_client or not ib_client.is_connected():
+        return jsonify({"status": "error", "message": "Not connected to Interactive Brokers"}), 400
+        
+    try:
+        # Test a simple request
+        account = ib_client.ib.managedAccounts()
+        return jsonify({
+            "status": "success", 
+            "account": account, 
+            "connected": ib_client.is_connected()
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # Clean up resources when the app closes
 def cleanup():
