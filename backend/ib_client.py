@@ -76,29 +76,38 @@ class IBClient:
     def is_connected(self):
         """Check if connected to Interactive Brokers"""
         self.connected = self.ib.isConnected()
+        print(f"IB connection status check: {self.connected}")
         return self.connected
     
     # Portfolio data functions
     async def async_get_portfolio_data(self):
         """Get portfolio data asynchronously"""
         try:
+            print("Starting async_get_portfolio_data...")
+            
             # Get account summary
+            print("Requesting account summary...")
             account_summary = await self.ib.accountSummaryAsync()
+            print(f"Account summary received, length: {len(account_summary) if account_summary else 0}")
             
             if not account_summary:
                 print("Account summary is empty")
                 return None, None
                 
             # Create DataFrame from account summary
+            print("Creating account DataFrame...")
             account_df = pd.DataFrame([(row.tag, row.value) for row in account_summary], 
                                 columns=['Tag', 'Value'])
             account_df = account_df.set_index('Tag')
+            print("Account DataFrame created successfully")
             
             # Get positions
+            print("Requesting positions...")
             positions = await self.ib.positionsAsync()
+            print(f"Positions received, length: {len(positions) if positions else 0}")
             
             if not positions:
-                print("No positions found")
+                print("No positions found - returning empty positions DataFrame")
                 # Return account data even if no positions
                 return account_df, pd.DataFrame()
             
@@ -242,12 +251,15 @@ class IBClient:
     def get_portfolio_data(self):
         """Get portfolio data (non-async wrapper)"""
         if not self.ib.isConnected():
+            print("Not connected to IB, returning None")
             return None, None
         
         try:
+            print("Running async_get_portfolio_data from get_portfolio_data...")
             return self._run_async(self.async_get_portfolio_data())
         except Exception as e:
             print(f"Error getting portfolio data: {e}")
+            print(traceback.format_exc())
             return None, None
     
     # Option chain functions

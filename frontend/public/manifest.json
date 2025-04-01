@@ -1,0 +1,9 @@
+{
+    "short_name": "IB Portfolio",
+    "name": "Interactive Brokers Portfolio Viewer",
+    "icons": [],
+    "start_url": ".",
+    "display": "standalone",
+    "theme_color": "#000000",
+    "background_color": "#121212"
+  }

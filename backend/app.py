@@ -3,6 +3,7 @@ from flask_cors import CORS
 import asyncio
 import time
 import threading
+import traceback
 import os
 from datetime import datetime
 
@@ -46,16 +47,24 @@ def update_portfolio_data():
     while not stop_event.is_set():
         if ib_client and ib_client.is_connected():
             try:
+                print("Attempting to get portfolio data...")
                 account_df, underlying_df = ib_client.get_portfolio_data()
                 
+                print(f"Retrieved data: account_df is None? {account_df is None}, underlying_df is None? {underlying_df is None}")
+                
                 if account_df is not None and underlying_df is not None:
+                    print("Setting portfolio data...")
                     portfolio_data = {
                         'account_summary': account_df.to_dict(),
                         'underlying_positions': underlying_df.to_dict('records'),
                         'last_update': datetime.now().isoformat()
                     }
+                    print("Portfolio data set successfully")
+                else:
+                    print("One or both dataframes are None")
             except Exception as e:
                 print(f"Error updating portfolio data: {e}")
+                print(f"Full traceback: {traceback.format_exc()}")
                 
         # Sleep until next update (15 seconds)
         time.sleep(15)
@@ -248,5 +257,5 @@ atexit.register(cleanup)
 
 if __name__ == '__main__':
     # Get port from environment or use default
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5001))
     app.run(debug=True, host='0.0.0.0', port=port)
