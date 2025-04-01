@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import asyncio
+import nest_asyncio
 import time
 import threading
 import traceback
@@ -10,6 +11,8 @@ from datetime import datetime
 # Import our custom modules
 from ib_client import IBClient
 from utils import safe_float_conversion, format_currency
+
+nest_asyncio.apply()
 
 # Initialize Flask app
 app = Flask(__name__)

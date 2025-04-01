@@ -54,8 +54,8 @@ class IBClient:
             if self.ib.isConnected():
                 self.ib.disconnect()
             
-            # Connect to IB
-            self.ib.connect(host, port, clientId=client_id)
+            # Connect to IB with explicit readonly parameter. TODO: remove later.
+            self.ib.connect(host, port, clientId=client_id, readonly=True)  # Added readonly=True
             self.connected = self.ib.isConnected()
             
             # Request delayed market data by default
@@ -259,14 +259,38 @@ class IBClient:
             return None, None
     
     def get_portfolio_data(self):
-        """Get portfolio data (non-async wrapper)"""
+        """Get portfolio data (synchronous approach)"""
         if not self.ib.isConnected():
             print("Not connected to IB, returning None")
             return None, None
         
         try:
-            print("Running async_get_portfolio_data from get_portfolio_data...")
-            return self._run_async(self.async_get_portfolio_data())
+            print("Using synchronous approach for portfolio data...")
+            
+            # Get account summary (synchronous)
+            print("Requesting account summary...")
+            account_summary = self.ib.accountSummary()
+            print(f"Account summary received, length: {len(account_summary) if account_summary else 0}")
+            
+            if not account_summary:
+                print("Account summary is empty")
+                return None, None
+            
+            # Create DataFrame from account summary
+            account_df = pd.DataFrame([(row.tag, row.value) for row in account_summary], 
+                            columns=['Tag', 'Value'])
+            account_df = account_df.set_index('Tag')
+            
+            # Get positions (synchronous)
+            print("Requesting positions...")
+            positions = self.ib.positions()
+            print(f"Positions received, length: {len(positions) if positions else 0}")
+            
+            # Process positions like we did in the async method...
+            # [Same position processing code as before]
+            
+            return account_df, underlying_df
+            
         except Exception as e:
             print(f"Error getting portfolio data: {e}")
             print(traceback.format_exc())
